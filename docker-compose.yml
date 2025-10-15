@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  vault:
+    image: hashicorp/vault:latest
+    container_name: vault-demo
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: "root-token-demo"
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+      VAULT_ADDR: "http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - vault-data:/vault/file
+      - vault-logs:/vault/logs
+      - ./backups:/vault/backups
+    command: server -dev -dev-root-token-id="root-token-demo"
+    healthcheck:
+      test: ["CMD", "vault", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - vault-network
+
+  vault-init:
+    image: hashicorp/vault:latest
+    container_name: vault-init
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "root-token-demo"
+    depends_on:
+      vault:
+        condition: service_healthy
+    volumes:
+      - ./init-vault.sh:/init-vault.sh
+      - ./demo-data:/demo-data
+    command: sh /init-vault.sh
+    networks:
+      - vault-network
+
+  custom-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vault-custom-ui
+    ports:
+      - "8080:8080"
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      PORT: "8080"
+    depends_on:
+      - vault-init
+    networks:
+      - vault-network
+
+  # Backup scheduler (chạy mỗi giờ)
+  vault-backup:
+    image: hashicorp/vault:latest
+    container_name: vault-backup
+    environment:
+      VAULT_ADDR: "http://vault:8200"
+      VAULT_TOKEN: "root-token-demo"
+    volumes:
+      - ./backups:/backups
+      - ./backup-script.sh:/backup-script.sh
+    command: sh -c "while true; do sh /backup-script.sh; sleep 3600; done"
+    depends_on:
+      - vault-init
+    networks:
+      - vault-network
+
+volumes:
+  vault-data:
+  vault-logs:
+
+networks:
+  vault-network:
+    driver: bridge

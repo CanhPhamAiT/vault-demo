@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault - Quản lý Secrets (No-CORS, via Node Backend)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            background: white; padding: 30px; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); margin-bottom: 30px; text-align: center;
+        }
+        .header h1 { color: #333; font-size: 2.5em; margin-bottom: 10px; }
+        .login-box {
+            background: white; padding: 40px; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-width: 500px; margin: 0 auto;
+        }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; color: #555; margin-bottom: 8px; font-weight: 500; }
+        .form-group input {
+            width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus { outline: none; border-color: #667eea; }
+        .btn {
+            width: 100%; padding: 14px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 8px; font-size: 1.1em; cursor: pointer; transition: transform 0.2s;
+        }
+        .btn:hover { transform: translateY(-2px); }
+        .error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .success { background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; margin-bottom: 20px; }
+        .user-info { background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .user-info strong { color: #1976d2; }
+        .secrets-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px; margin-top: 30px;
+        }
+        .secret-card {
+            background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .secret-card:hover { transform: translateY(-5px); }
+        .secret-card h3 { color: #333; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0; }
+        .secret-item { margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px; }
+        .secret-item label { font-weight: 600; color: #555; display: block; margin-bottom: 5px; }
+        .secret-value { display: flex; gap: 10px; align-items: center; }
+        .secret-value input {
+            flex: 1; padding: 8px; border: 1px solid #e0e0e0; border-radius: 4px; font-family: monospace;
+        }
+        .copy-btn { padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .copy-btn:hover { background: #5568d3; }
+        .copy-btn.copied { background: #28a745; }
+        .hidden { display: none; }
+        .logout-btn { background: #dc3545; color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; float: right; }
+        .demo-users { background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 0.9em; }
+        .demo-users h4 { margin-bottom: 10px; color: #856404; }
+        .demo-users ul { list-style: none; padding-left: 0; }
+        .demo-users li { margin: 5px 0; padding: 5px; background: white; border-radius: 4px; }
+        .muted { color: #777; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Vault Secrets Manager</h1>
+            <p>Hệ thống quản lý mật khẩu tập trung (qua Node backend, không CORS)</p>
+        </div>
+
+        <!-- Login Form -->
+        <div id="login-section" class="login-box">
+            <h2>Đăng nhập</h2>
+            <div id="message"></div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Server (cùng origin):</label>
+                    <input type="text" id="backend-url" value="" disabled class="muted">
+                    <div class="muted">* UI sẽ gọi backend cùng origin (ví dụ http://localhost:8080)</div>
+                </div>
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="username" placeholder="Nhập username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="password" placeholder="Nhập password" required>
+                </div>
+                <button type="submit" class="btn">Đăng nhập</button>
+            </form>
+            
+            <div class="demo-users">
+                <h4>👥 Demo Users:</h4>
+                <ul>
+                    <li><strong>admin</strong> / admin123 - Full quyền</li>
+                    <li><strong>dev1</strong> / dev123 - Developer</li>
+                    <li><strong>ops</strong> / ops123 - Operations</li>
+                    <li><strong>guest</strong> / guest123 - Chỉ xem</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Secrets Display -->
+        <div id="secrets-section" class="hidden">
+            <div style="background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h2 style="display: inline-block; color: #333;">Danh sách Secrets</h2>
+                <button class="logout-btn" onclick="logout()">Đăng xuất</button>
+                <div style="clear: both;"></div>
+                <div id="user-info" class="user-info"></div>
+            </div>
+            
+            <div id="loading" style="text-align: center; padding: 40px; color: white;">
+                Đang tải secrets...
+            </div>
+            <div id="secrets-container" class="secrets-grid hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        const backendBase = location.origin;
+        document.getElementById('backend-url').value = backendBase;
+
+        // Login using Node backend (stores Vault token in session cookie)
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            showMessage('Đang đăng nhập...', 'success');
+            
+            try {
+                const response = await fetch(`${backendBase}/api/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+
+                if (!response.ok || !data.ok) {
+                    const reason = data?.vault?.errors ? data.vault.errors.join('; ') : 'Đăng nhập thất bại';
+                    showMessage('Lỗi: ' + reason, 'error');
+                    return;
+                }
+
+                currentUser = {
+                    username,
+                    policies: data.policies || []
+                };
+                
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('secrets-section').classList.remove('hidden');
+                showUserInfo();
+                loadSecrets();
+            } catch (error) {
+                showMessage('Lỗi: ' + error.message, 'error');
+            }
+        });
+
+        // Helpers that call Node backend (no CORS)
+        async function listSecrets(prefix = '') {
+            const url = new URL(`${backendBase}/api/list`);
+            if (prefix) url.searchParams.set('prefix', prefix);
+            const resp = await fetch(url.toString(), { credentials: 'same-origin' });
+            if (!resp.ok) {
+                if (resp.status === 401) return [];
+                throw new Error('Không thể lấy danh sách secrets');
+            }
+            const data = await resp.json();
+            return data?.data?.keys || [];
+        }
+
+        async function getSecret(path) {
+            const resp = await fetch(`${backendBase}/api/secret/${encodeURIComponent(path)}`, { credentials: 'same-origin' });
+            if (!resp.ok) {
+                if (resp.status === 401) return null;
+                throw new Error('Không thể lấy secret');
+            }
+            const data = await resp.json();
+            return data?.data?.data;
+        }
+
+        async function logout() {
+            try {
+                await fetch(`${backendBase}/api/logout`, { method: 'POST' });
+            } catch {}
+            currentUser = null;
+            document.getElementById('secrets-section').classList.add('hidden');
+            document.getElementById('login-section').classList.remove('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            document.getElementById('secrets-container').innerHTML = '';
+            document.getElementById('message').classList.add('hidden');
+        }
+
+        function showUserInfo() {
+            const infoDiv = document.getElementById('user-info');
+            infoDiv.innerHTML = `
+                <strong>👤 User:</strong> ${currentUser.username} &nbsp;&nbsp;
+                <strong>🎯 Policies:</strong> ${currentUser.policies.join(', ')}
+            `;
+        }
+
+        async function loadSecrets() {
+            try {
+                const container = document.getElementById('secrets-container');
+                container.innerHTML = '';
+                
+                // Top-level listing (KV v2 metadata)
+                const paths = await listSecrets(''); // '' == root
+                
+                if (paths.length === 0) {
+                    container.innerHTML = '<p style="color: white; text-align: center;">Không có quyền xem secrets nào</p>';
+                    document.getElementById('loading').classList.add('hidden');
+                    container.classList.remove('hidden');
+                    return;
+                }
+                
+                for (const path of paths) {
+                    if (path.endsWith('/')) {
+                        const subPaths = await listSecrets(path);
+                        for (const subPath of subPaths) {
+                            await displaySecret(container, `${path}${subPath}`);
+                        }
+                    } else {
+                        await displaySecret(container, path);
+                    }
+                }
+                
+                document.getElementById('loading').classList.add('hidden');
+                container.classList.remove('hidden');
+            } catch (error) {
+                showMessage('Lỗi khi tải secrets: ' + error.message, 'error');
+            }
+        }
+
+        async function displaySecret(container, path) {
+            try {
+                const secret = await getSecret(path);
+                if (secret) {
+                    const card = createSecretCard(path, secret);
+                    container.appendChild(card);
+                }
+            } catch (error) {
+                console.error(`Không thể tải secret ${path}:`, error);
+            }
+        }
+
+        function createSecretCard(path, secret) {
+            const card = document.createElement('div');
+            card.className = 'secret-card';
+            
+            let html = `<h3>📁 ${path}</h3>`;
+            for (const [key, value] of Object.entries(secret)) {
+                const isPassword = key.toLowerCase().includes('password') || 
+                                   key.toLowerCase().includes('secret') ||
+                                   key.toLowerCase().includes('key');
+                const inputId = `secret-${path.replace(/\//g, '-')}-${key}`;
+                html += `
+                    <div class="secret-item">
+                        <label>${key}:</label>
+                        <div class="secret-value">
+                            <input type="${isPassword ? 'password' : 'text'}" 
+                                   value="${value}" 
+                                   id="${inputId}"
+                                   readonly>
+                            <button class="copy-btn" onclick="copySecret('${inputId}', this)">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            card.innerHTML = html;
+            return card;
+        }
+
+        function copySecret(inputId, button) {
+            const input = document.getElementById(inputId);
+            const originalType = input.type;
+            input.type = 'text';
+            input.select();
+            document.execCommand('copy');
+            input.type = originalType;
+            button.textContent = '✓ Copied!';
+            button.classList.add('copied');
+            setTimeout(() => { button.textContent = 'Copy'; button.classList.remove('copied'); }, 2000);
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.className = type;
+            messageDiv.textContent = message;
+            messageDiv.classList.remove('hidden');
+            if (type !== 'success') {
+                setTimeout(() => { messageDiv.classList.add('hidden'); }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
-const VAULT_ADDR = process.env.VAULT_ADDR || 'http://vault:8200';
+const VAULT_ADDR = process.env.VAULT_ADDR || 'http://10.3.0.133:8200';
 
 // Configure multer for file uploads (in-memory)
 const storage = multer.memoryStorage();

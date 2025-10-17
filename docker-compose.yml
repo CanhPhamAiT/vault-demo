@@ -37,7 +37,11 @@ services:
     volumes:
       - ./init-vault.sh:/init-vault.sh
       - ./demo-data:/demo-data
-    command: sh /init-vault.sh
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        apk add --no-cache openssh-client openssl
+        sh /init-vault.sh
     networks:
       - vault-network
 

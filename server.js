@@ -1,12 +1,31 @@
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
+const multer = require('multer');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 const VAULT_ADDR = process.env.VAULT_ADDR || 'http://vault:8200';
 
-app.use(express.json());
+// Configure multer for file uploads (in-memory)
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    // Accept PEM, key, crt, cer files
+    const allowedExts = ['.pem', '.key', '.crt', '.cer', '.p12', '.pfx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only certificate files (.pem, .key, .crt, .cer, .p12, .pfx) are allowed'));
+    }
+  }
+});
+
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static('public'));
 
 // Session middleware
@@ -350,6 +369,229 @@ app.get('/api/stats', requireAuth, async (req, res) => {
       policies: req.session.policies,
       secrets,
       loginTime: req.session.loginTime
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Upload PEM file
+app.post('/api/upload-pem', requireAuth, upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'No file uploaded' 
+      });
+    }
+
+    const { secretPath, description } = req.body;
+    if (!secretPath) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'secretPath is required' 
+      });
+    }
+
+    const fileContent = req.file.buffer.toString('utf8');
+    const fileName = req.file.originalname;
+    const fileSize = req.file.size;
+    
+    // Detect file type
+    let fileType = 'unknown';
+    if (fileContent.includes('BEGIN CERTIFICATE')) fileType = 'certificate';
+    else if (fileContent.includes('BEGIN PRIVATE KEY')) fileType = 'private_key';
+    else if (fileContent.includes('BEGIN RSA PRIVATE KEY')) fileType = 'rsa_private_key';
+    else if (fileContent.includes('BEGIN PUBLIC KEY')) fileType = 'public_key';
+    else if (fileContent.includes('BEGIN ENCRYPTED PRIVATE KEY')) fileType = 'encrypted_private_key';
+
+    // Generate fingerprint for tracking
+    const fingerprint = crypto.createHash('sha256').update(fileContent).digest('hex').substring(0, 16);
+
+    // Store in Vault
+    const secretData = {
+      content: fileContent,
+      filename: fileName,
+      type: fileType,
+      size: fileSize,
+      fingerprint: fingerprint,
+      description: description || '',
+      uploaded_by: req.session.username,
+      uploaded_at: new Date().toISOString()
+    };
+
+    const result = await vaultRequest(
+      `secret/data/${secretPath}`,
+      req.session.vaultToken,
+      {
+        method: 'POST',
+        body: JSON.stringify({ data: secretData })
+      }
+    );
+
+    if (!result.ok) {
+      return res.status(result.status).json(result.data);
+    }
+
+    res.json({ 
+      ok: true, 
+      message: 'PEM file uploaded successfully',
+      fingerprint: fingerprint,
+      type: fileType,
+      path: secretPath
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Download PEM file (returns raw content)
+app.get('/api/download-pem/:mount/:path(*)', requireAuth, async (req, res) => {
+  const mount = req.params.mount;
+  const secretPath = req.params.path;
+  
+  try {
+    const result = await vaultRequest(
+      `${mount}/data/${secretPath}`,
+      req.session.vaultToken
+    );
+
+    if (!result.ok) {
+      return res.status(result.status).json(result.data);
+    }
+
+    const data = result.data?.data?.data;
+    if (!data || !data.content) {
+      return res.status(404).json({ 
+        ok: false, 
+        error: 'PEM content not found' 
+      });
+    }
+
+    // Set appropriate headers for download
+    res.setHeader('Content-Type', 'application/x-pem-file');
+    res.setHeader('Content-Disposition', `attachment; filename="${data.filename || 'certificate.pem'}"`);
+    res.send(data.content);
+  } catch (error) {
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Verify PEM file (check validity, expiry for certificates)
+app.post('/api/verify-pem', requireAuth, async (req, res) => {
+  try {
+    const { content } = req.body;
+    
+    if (!content) {
+      return res.status(400).json({ 
+        ok: false, 
+        error: 'Content is required' 
+      });
+    }
+
+    const verification = {
+      valid: false,
+      type: 'unknown',
+      details: {}
+    };
+
+    // Basic validation
+    if (content.includes('BEGIN CERTIFICATE') && content.includes('END CERTIFICATE')) {
+      verification.type = 'certificate';
+      verification.valid = true;
+      
+      // Try to parse certificate details (basic regex parsing)
+      const subjectMatch = content.match(/Subject:(.+)/);
+      const issuerMatch = content.match(/Issuer:(.+)/);
+      const validityMatch = content.match(/Not After : (.+)/);
+      
+      if (subjectMatch) verification.details.subject = subjectMatch[1].trim();
+      if (issuerMatch) verification.details.issuer = issuerMatch[1].trim();
+      if (validityMatch) verification.details.expires = validityMatch[1].trim();
+    } else if (content.includes('BEGIN PRIVATE KEY') || content.includes('BEGIN RSA PRIVATE KEY')) {
+      verification.type = 'private_key';
+      verification.valid = true;
+      verification.details.encrypted = content.includes('ENCRYPTED');
+    } else if (content.includes('BEGIN PUBLIC KEY')) {
+      verification.type = 'public_key';
+      verification.valid = true;
+    }
+
+    res.json(verification);
+  } catch (error) {
+    res.status(500).json({ 
+      ok: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Generate key pair
+app.post('/api/generate-keypair', requireAuth, async (req, res) => {
+  try {
+    const { keyType, keySize, secretPath, description } = req.body;
+    
+    // Use Node.js crypto to generate keypair
+    const { publicKey, privateKey } = crypto.generateKeyPairSync(keyType || 'rsa', {
+      modulusLength: parseInt(keySize) || 2048,
+      publicKeyEncoding: {
+        type: 'spki',
+        format: 'pem'
+      },
+      privateKeyEncoding: {
+        type: 'pkcs8',
+        format: 'pem'
+      }
+    });
+
+    // Generate fingerprint
+    const fingerprint = crypto.createHash('sha256')
+      .update(publicKey)
+      .digest('hex')
+      .substring(0, 16);
+
+    const secretData = {
+      private_key: privateKey,
+      public_key: publicKey,
+      key_type: keyType || 'rsa',
+      key_size: keySize || 2048,
+      fingerprint: fingerprint,
+      description: description || '',
+      generated_by: req.session.username,
+      generated_at: new Date().toISOString()
+    };
+
+    // Store in Vault
+    if (secretPath) {
+      const result = await vaultRequest(
+        `secret/data/${secretPath}`,
+        req.session.vaultToken,
+        {
+          method: 'POST',
+          body: JSON.stringify({ data: secretData })
+        }
+      );
+
+      if (!result.ok) {
+        return res.status(result.status).json(result.data);
+      }
+    }
+
+    res.json({ 
+      ok: true,
+      message: 'Key pair generated successfully',
+      fingerprint: fingerprint,
+      publicKey: publicKey,
+      privateKey: privateKey // Only returned once, not stored in response
     });
   } catch (error) {
     res.status(500).json({ 

@@ -432,6 +432,57 @@ vault kv put secret/certificates/dev-app \
     domain="app.dev.example.com" \
     issued_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+# ============================================
+# 9. TẠO DEMO PEM FILES
+# ============================================
+echo "📁 Tạo demo PEM files..."
+
+# Generate demo SSH keypair
+ssh-keygen -t rsa -b 2048 -f /tmp/demo_ssh_key -N "" -C "demo@vault" > /dev/null 2>&1
+
+vault kv put secret/pem-files/ssh-production \
+    content="$(cat /tmp/demo_ssh_key)" \
+    public_key="$(cat /tmp/demo_ssh_key.pub)" \
+    filename="ssh-production.pem" \
+    type="rsa_private_key" \
+    size="$(wc -c < /tmp/demo_ssh_key)" \
+    fingerprint="$(ssh-keygen -lf /tmp/demo_ssh_key.pub | awk '{print $2}' | cut -c1-16)" \
+    description="Production server SSH key" \
+    uploaded_by="system" \
+    uploaded_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Store SSL certificate from PKI
+vault kv put secret/pem-files/ssl-dev-app \
+    content="$DEV_CERT" \
+    private_key="$DEV_KEY" \
+    filename="dev-app.pem" \
+    type="certificate" \
+    size="$(echo -n "$DEV_CERT" | wc -c)" \
+    fingerprint="$(echo -n "$DEV_CERT" | sha256sum | cut -c1-16)" \
+    description="Development app SSL certificate from PKI" \
+    uploaded_by="system" \
+    uploaded_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Create demo RSA keypair for API signing
+openssl genrsa -out /tmp/api_private.pem 2048 2>/dev/null
+openssl rsa -in /tmp/api_private.pem -pubout -out /tmp/api_public.pem 2>/dev/null
+
+vault kv put secret/pem-files/api-signing-key \
+    private_key="$(cat /tmp/api_private.pem)" \
+    public_key="$(cat /tmp/api_public.pem)" \
+    filename="api-signing-key.pem" \
+    type="private_key" \
+    size="$(wc -c < /tmp/api_private.pem)" \
+    fingerprint="$(openssl rsa -in /tmp/api_private.pem -pubout 2>/dev/null | sha256sum | cut -c1-16)" \
+    description="RSA keypair for API request signing" \
+    generated_by="system" \
+    generated_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Cleanup temp files
+rm -f /tmp/demo_ssh_key /tmp/demo_ssh_key.pub /tmp/api_private.pem /tmp/api_public.pem
+
+echo "✅ PEM files demo đã được tạo"
+
 echo "✅ Vault khởi tạo hoàn tất!"
 echo ""
 echo "═══════════════════════════════════════════════════════════"
@@ -463,7 +514,11 @@ echo "  ├── ssl/                - SSL/TLS certificates (PEM)"
 echo "  ├── infrastructure/     - K8s, Docker registry"
 echo "  ├── dev/                - Dev personal secrets"
 echo "  ├── ops/                - Ops personal secrets"
-echo "  └── certificates/       - Generated certificates"
+echo "  ├── certificates/       - Generated certificates"
+echo "  └── pem-files/          - Uploaded PEM files (NEW!)"
+echo "      ├── ssh-production  - Demo SSH key"
+echo "      ├── ssl-dev-app     - Demo SSL certificate"
+echo "      └── api-signing-key - Demo RSA keypair"
 echo ""
 echo "team/                      - Team shared secrets (policy-based)"
 echo "  ├── development/        - Dev team only"
@@ -483,4 +538,5 @@ echo "✅ Team secrets: Chia sẻ không lộ plaintext (policy control)"
 echo "✅ Auto backup: Mỗi giờ snapshot vào /vault/backups/"
 echo "✅ Web UI: Non-technical users dùng http://localhost:8080"
 echo "✅ PKI: Generate SSL/TLS certificates on-demand"
+echo "✅ PEM Management: Upload, generate, download PEM files securely (NEW!)"
 echo "═══════════════════════════════════════════════════════════"

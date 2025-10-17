@@ -20,7 +20,6 @@
         .header h1 { color: #333; font-size: 2.5em; margin-bottom: 10px; }
         .header .subtitle { color: #666; font-size: 1.1em; }
         
-        /* Login */
         .login-box {
             background: white; padding: 40px; border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.2); max-width: 500px; margin: 0 auto;
@@ -45,12 +44,10 @@
         .btn-success { background: #28a745; }
         .btn-small { padding: 8px 16px; font-size: 0.9em; }
         
-        /* Messages */
         .error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 8px; margin-bottom: 20px; }
         .success { background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; margin-bottom: 20px; }
         .warning { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 20px; }
         
-        /* Navigation Tabs */
         .tabs {
             display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;
         }
@@ -61,7 +58,6 @@
         .tab:hover { background: #f0f0f0; }
         .tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         
-        /* User Info Bar */
         .user-bar {
             background: white; padding: 15px 20px; border-radius: 10px;
             display: flex; justify-content: space-between; align-items: center;
@@ -71,7 +67,6 @@
         .user-badge { background: #e3f2fd; padding: 8px 16px; border-radius: 6px; }
         .user-badge strong { color: #1976d2; }
         
-        /* Secrets Grid */
         .secrets-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
             gap: 20px; margin-top: 20px;
@@ -106,7 +101,6 @@
         .copy-btn:hover { background: #5568d3; }
         .copy-btn.copied { background: #28a745; }
         
-        /* Stats Dashboard */
         .stats-grid {
             display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px; margin-bottom: 30px;
@@ -123,7 +117,6 @@
         }
         .stat-card .stat-label { color: #666; font-size: 1.1em; margin-top: 10px; }
         
-        /* Modal */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;
@@ -143,7 +136,6 @@
             cursor: pointer; color: #999;
         }
         
-        /* Utility */
         .hidden { display: none !important; }
         .text-center { text-align: center; }
         .mt-20 { margin-top: 20px; }
@@ -163,14 +155,12 @@
             border-radius: 4px; border-left: 4px solid #ffc107;
         }
         
-        /* Action Buttons */
         .action-buttons {
             display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;
         }
         .delete-btn { background: #dc3545 !important; }
         .delete-btn:hover { background: #c82333 !important; }
         
-        /* Certificate Display */
         .cert-display {
             background: #f8f9fa; padding: 15px; border-radius: 8px;
             font-family: monospace; font-size: 0.85em;
@@ -182,15 +172,13 @@
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
             <h1>🔐 Vault Enterprise Manager</h1>
             <p class="subtitle">
-                Hệ thống quản lý mật khẩu tập trung • Phân quyền • Audit Log • Backup & Recovery
+                Hệ thống quản lý mật khẩu tập trung • Phân quyền • Audit Log • Backup & Recovery • PEM Files
             </p>
         </div>
 
-        <!-- Login Section -->
         <div id="login-section" class="login-box">
             <h2 style="margin-bottom: 20px;">Đăng nhập</h2>
             <div id="message"></div>
@@ -218,9 +206,7 @@
             </div>
         </div>
 
-        <!-- Main Dashboard -->
         <div id="dashboard-section" class="hidden">
-            <!-- User Bar -->
             <div class="user-bar">
                 <div class="user-info">
                     <div class="user-badge">
@@ -236,16 +222,15 @@
                 <button class="btn btn-danger btn-small" onclick="logout()">Đăng xuất</button>
             </div>
 
-            <!-- Navigation Tabs -->
             <div class="tabs">
                 <button class="tab active" onclick="showTab('secrets')">📦 Secrets</button>
                 <button class="tab" onclick="showTab('team')">🤝 Team Secrets</button>
+                <button class="tab" onclick="showTab('pem')">🔒 PEM Files</button>
                 <button class="tab" onclick="showTab('pki')">🔐 Certificates (PKI)</button>
                 <button class="tab" onclick="showTab('stats')">📊 Statistics</button>
                 <button class="tab" onclick="showTab('audit')">📝 Audit Log</button>
             </div>
 
-            <!-- Content Sections -->
             <div id="content-area"></div>
         </div>
 
@@ -304,6 +289,69 @@
                 <div id="cert-result" class="hidden mt-20"></div>
             </div>
         </div>
+
+        <div id="upload-pem-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Upload PEM File</h2>
+                    <button class="close-btn" onclick="closeModal('upload-pem-modal')">&times;</button>
+                </div>
+                <form id="upload-pem-form">
+                    <div class="form-group">
+                        <label>PEM File:</label>
+                        <input type="file" id="pem-file" accept=".pem,.key,.crt,.cer,.p12,.pfx" required>
+                        <small style="color: #666;">Accepts: .pem, .key, .crt, .cer, .p12, .pfx (max 10MB)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Save Path:</label>
+                        <input type="text" id="pem-path" placeholder="e.g., myserver" required>
+                        <small style="color: #666;">Will be saved to: secret/pem-files/myserver</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" id="pem-description" placeholder="e.g., Production server SSL certificate">
+                    </div>
+                    <button type="submit" class="btn">Upload & Store</button>
+                </form>
+                <div id="upload-result" class="hidden mt-20"></div>
+            </div>
+        </div>
+
+        <div id="generate-keypair-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Generate Key Pair</h2>
+                    <button class="close-btn" onclick="closeModal('generate-keypair-modal')">&times;</button>
+                </div>
+                <form id="generate-keypair-form">
+                    <div class="form-group">
+                        <label>Key Type:</label>
+                        <select id="keypair-type" required>
+                            <option value="rsa">RSA</option>
+                            <option value="ec">Elliptic Curve (EC)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Key Size:</label>
+                        <select id="keypair-size" required>
+                            <option value="2048">2048 bits</option>
+                            <option value="4096">4096 bits</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Save Path:</label>
+                        <input type="text" id="keypair-path" placeholder="e.g., my-keypair" required>
+                        <small style="color: #666;">Will be saved to: secret/pem-files/my-keypair</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" id="keypair-description" placeholder="e.g., SSH key for production server">
+                    </div>
+                    <button type="submit" class="btn">Generate Key Pair</button>
+                </form>
+                <div id="keypair-result" class="hidden mt-20"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -311,7 +359,6 @@
         let currentTab = 'secrets';
         const backendBase = location.origin;
 
-        // Login
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -372,6 +419,7 @@
                 switch(tab) {
                     case 'secrets': loadSecrets('secret'); break;
                     case 'team': loadSecrets('team'); break;
+                    case 'pem': loadPEMFiles(); break;
                     case 'pki': loadPKI(); break;
                     case 'stats': loadStats(); break;
                     case 'audit': loadAudit(); break;
@@ -450,7 +498,6 @@
                     );
                     const inputId = `${mount}-${path}-${key}`.replace(/[\/\s]/g, '-');
                     
-                    // Check if value is certificate/PEM
                     const isCert = typeof value === 'string' && 
                                    (value.includes('BEGIN CERTIFICATE') || 
                                     value.includes('BEGIN PRIVATE KEY') ||
@@ -496,6 +543,323 @@
                 return '';
             }
         }
+
+        async function loadPEMFiles() {
+            const content = document.getElementById('content-area');
+            
+            content.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 15px; margin-bottom: 20px;">
+                    <h2 style="color: #333; margin-bottom: 20px;">🔒 PEM Files Management</h2>
+                    
+                    <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <button class="btn btn-success btn-small" onclick="openModal('upload-pem-modal')">
+                            📤 Upload PEM File
+                        </button>
+                        <button class="btn btn-small" onclick="openModal('generate-keypair-modal')">
+                            🔑 Generate Key Pair
+                        </button>
+                    </div>
+                    
+                    <div class="warning">
+                        <strong>🔒 Secure Storage:</strong> PEM files are encrypted at rest (AES-256) and access is logged in audit trail.
+                    </div>
+                </div>
+                
+                <div id="pem-files-container">
+                    <div class="loading">Loading PEM files...</div>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch(`${backendBase}/api/list?mount=secret&prefix=pem-files/`);
+                const data = await response.json();
+                
+                let html = '<div class="secrets-grid">';
+                
+                if (!data?.data?.keys || data.data.keys.length === 0) {
+                    html = '<p style="color: white; text-align: center; padding: 40px;">No PEM files stored yet. Upload one to get started!</p>';
+                } else {
+                    for (const path of data.data.keys) {
+                        if (!path.endsWith('/')) {
+                            html += await renderPEMCard('secret', 'pem-files/' + path);
+                        }
+                    }
+                    html += '</div>';
+                }
+                
+                document.getElementById('pem-files-container').innerHTML = html;
+            } catch (error) {
+                document.getElementById('pem-files-container').innerHTML = 
+                    `<div class="error">Error loading PEM files: ${error.message}</div>`;
+            }
+        }
+
+        async function renderPEMCard(mount, path) {
+            try {
+                const response = await fetch(`${backendBase}/api/secret/${mount}/${path}`);
+                if (!response.ok) return '';
+                
+                const data = await response.json();
+                const pem = data?.data?.data;
+                if (!pem) return '';
+                
+                const displayName = path.replace('pem-files/', '');
+                const typeIcon = pem.type === 'certificate' ? '📜' : 
+                                pem.type && pem.type.includes('private') ? '🔐' : '🔑';
+                
+                return `
+                    <div class="secret-card">
+                        <h3>
+                            <span>${typeIcon} ${displayName}</span>
+                            <span class="mount-label">PEM</span>
+                        </h3>
+                        
+                        <div class="secret-item">
+                            <label>Type:</label>
+                            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                                ${pem.type || 'unknown'}
+                            </div>
+                        </div>
+                        
+                        <div class="secret-item">
+                            <label>Filename:</label>
+                            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                                ${pem.filename || 'N/A'}
+                            </div>
+                        </div>
+                        
+                        ${pem.description ? `
+                        <div class="secret-item">
+                            <label>Description:</label>
+                            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                                ${pem.description}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="secret-item">
+                            <label>Fingerprint:</label>
+                            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+                                ${pem.fingerprint || 'N/A'}
+                            </div>
+                        </div>
+                        
+                        <div class="secret-item">
+                            <label>Size:</label>
+                            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                                ${pem.size ? (pem.size / 1024).toFixed(2) + ' KB' : 'N/A'}
+                            </div>
+                        </div>
+                        
+                        <div class="secret-item">
+                            <label>Uploaded By:</label>
+                            <div style="padding: 8px; background: #f0f0f0; border-radius: 4px;">
+                                ${pem.uploaded_by || pem.generated_by || 'N/A'} 
+                                <small>(${pem.uploaded_at || pem.generated_at ? new Date(pem.uploaded_at || pem.generated_at).toLocaleString('vi-VN') : 'N/A'})</small>
+                            </div>
+                        </div>
+                        
+                        <div class="secret-item">
+                            <label>Content Preview:</label>
+                            <textarea readonly style="width: 100%; height: 120px; font-family: monospace; font-size: 0.75em; padding: 8px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px;">${pem.content ? pem.content.substring(0, 300) + '...' : pem.private_key ? pem.private_key.substring(0, 300) + '...' : 'N/A'}</textarea>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button class="btn btn-small" onclick="downloadPEM('${mount}', '${path}', '${pem.filename || displayName + '.pem'}')">
+                                📥 Download
+                            </button>
+                            <button class="btn btn-small" onclick="viewPEMFull('${mount}', '${path}')">
+                                👁️ View Full
+                            </button>
+                            <button class="btn btn-small delete-btn" onclick="deleteSecret('${mount}', '${path}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } catch (error) {
+                return '';
+            }
+        }
+
+        async function downloadPEM(mount, path, filename) {
+            try {
+                const response = await fetch(`${backendBase}/api/download-pem/${mount}/${path}`);
+                if (!response.ok) {
+                    alert('Failed to download PEM file');
+                    return;
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                alert('✅ PEM file downloaded!');
+            } catch (error) {
+                alert('Error downloading file: ' + error.message);
+            }
+        }
+
+        async function viewPEMFull(mount, path) {
+            try {
+                const response = await fetch(`${backendBase}/api/secret/${mount}/${path}`);
+                const data = await response.json();
+                const pem = data?.data?.data;
+                
+                if (!pem) {
+                    alert('Failed to load PEM content');
+                    return;
+                }
+                
+                const content = pem.content || pem.private_key || pem.certificate || 'No content available';
+                
+                const modal = document.createElement('div');
+                modal.className = 'modal show';
+                modal.innerHTML = `
+                    <div class="modal-content" style="max-width: 800px;">
+                        <div class="modal-header">
+                            <h2>PEM File Content</h2>
+                            <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+                        </div>
+                        <textarea readonly style="width: 100%; height: 500px; font-family: monospace; font-size: 0.85em; padding: 15px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px;">${content}</textarea>
+                        <div style="margin-top: 15px;">
+                            <button class="btn btn-small" onclick="copyToClipboard(\`${content.replace(/`/g, '\\`').replace(/\$/g, '\\)}\`)">
+                                📋 Copy to Clipboard
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            } catch (error) {
+                alert('Error viewing PEM: ' + error.message);
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                alert('✅ Copied to clipboard!');
+            }).catch(err => {
+                alert('Failed to copy: ' + err.message);
+            });
+        }
+
+        document.getElementById('upload-pem-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('pem-file');
+            const path = document.getElementById('pem-path').value;
+            const description = document.getElementById('pem-description').value;
+            
+            if (!fileInput.files[0]) {
+                alert('Please select a file');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('secretPath', 'pem-files/' + path);
+            formData.append('description', description);
+            
+            try {
+                const response = await fetch(`${backendBase}/api/upload-pem`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('upload-result').innerHTML = `
+                        <div class="success">
+                            ✅ PEM file uploaded successfully!<br>
+                            <strong>Type:</strong> ${result.type}<br>
+                            <strong>Fingerprint:</strong> ${result.fingerprint}<br>
+                            <strong>Path:</strong> secret/${result.path}
+                        </div>
+                    `;
+                    document.getElementById('upload-result').classList.remove('hidden');
+                    
+                    document.getElementById('upload-pem-form').reset();
+                    
+                    setTimeout(() => {
+                        closeModal('upload-pem-modal');
+                        if (currentTab === 'pem') {
+                            loadPEMFiles();
+                        }
+                    }, 2000);
+                } else {
+                    alert('❌ Upload failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        });
+
+        document.getElementById('generate-keypair-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const keyType = document.getElementById('keypair-type').value;
+            const keySize = document.getElementById('keypair-size').value;
+            const path = document.getElementById('keypair-path').value;
+            const description = document.getElementById('keypair-description').value;
+            
+            try {
+                const response = await fetch(`${backendBase}/api/generate-keypair`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        keyType,
+                        keySize,
+                        secretPath: 'pem-files/' + path,
+                        description
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('keypair-result').innerHTML = `
+                        <div class="success">✅ Key pair generated successfully!</div>
+                        
+                        <div style="margin-top: 15px;">
+                            <h4>Public Key:</h4>
+                            <div class="cert-display">${result.publicKey}</div>
+                            <button class="btn btn-small mt-20" onclick="copyToClipboard(\`${result.publicKey.replace(/`/g, '\\`').replace(/\$/g, '\\)}\`)">
+                                📋 Copy Public Key
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 15px;">
+                            <h4>Private Key:</h4>
+                            <div class="cert-display">${result.privateKey}</div>
+                            <button class="btn btn-small mt-20" onclick="copyToClipboard(\`${result.privateKey.replace(/`/g, '\\`').replace(/\$/g, '\\)}\`)">
+                                📋 Copy Private Key
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 15px;">
+                            <p><strong>Fingerprint:</strong> ${result.fingerprint}</p>
+                            <p style="color: #856404; background: #fff3cd; padding: 10px; border-radius: 4px;">
+                                ⚠️ <strong>Important:</strong> Private key is shown only once. Download or copy it now!
+                            </p>
+                        </div>
+                    `;
+                    document.getElementById('keypair-result').classList.remove('hidden');
+                    
+                    document.getElementById('generate-keypair-form').reset();
+                } else {
+                    alert('❌ Generation failed: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('❌ Error: ' + error.message);
+            }
+        });
 
         async function loadPKI() {
             const content = document.getElementById('content-area');
@@ -614,6 +978,7 @@
                                 <li style="padding: 8px 0;">✓ Audit Logging Enabled</li>
                                 <li style="padding: 8px 0;">✓ Token TTL: ${Math.floor((data.ttl || 0) / 3600)}h</li>
                                 <li style="padding: 8px 0;">✓ Auto Backup Every Hour</li>
+                                <li style="padding: 8px 0;">✓ PEM Files Management</li>
                             </ul>
                         </div>
                     </div>
@@ -669,6 +1034,7 @@
                             <ul style="margin-top: 10px; padding-left: 20px;">
                                 <li>User authentication (login/logout)</li>
                                 <li>Secret read/write/delete operations</li>
+                                <li>PEM file uploads/downloads</li>
                                 <li>Policy changes</li>
                                 <li>Timestamp và IP address</li>
                                 <li>Request/Response details</li>
@@ -688,7 +1054,6 @@
             }
         }
 
-        // Modal Functions
         function openCreateModal() {
             document.getElementById('create-modal').classList.add('show');
         }
@@ -699,11 +1064,14 @@
             document.getElementById('cert-modal').classList.add('show');
         }
 
+        function openModal(modalId) {
+            document.getElementById(modalId).classList.add('show');
+        }
+
         function closeModal(modalId) {
             document.getElementById(modalId).classList.remove('show');
         }
 
-        // Create Secret
         document.getElementById('create-secret-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -733,7 +1101,6 @@
             }
         });
 
-        // Issue Certificate
         document.getElementById('issue-cert-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -769,7 +1136,6 @@
                     `;
                     document.getElementById('cert-result').classList.remove('hidden');
                     
-                    // Save to secrets
                     await fetch(`${backendBase}/api/secret/secret/certificates/${cn}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -789,7 +1155,6 @@
             }
         });
 
-        // Delete Secret
         async function deleteSecret(mount, path) {
             if (!confirm(`Bạn có chắc muốn xóa secret: ${mount}/${path}?`)) return;
             
@@ -800,7 +1165,11 @@
                 
                 if (response.ok) {
                     alert('✅ Secret đã được xóa');
-                    showTab(mount === 'team' ? 'team' : 'secrets');
+                    if (currentTab === 'pem' && path.startsWith('pem-files/')) {
+                        loadPEMFiles();
+                    } else {
+                        showTab(mount === 'team' ? 'team' : 'secrets');
+                    }
                 } else {
                     alert('❌ Không thể xóa secret');
                 }

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault Enterprise Manager</title>
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 Vault Enterprise Manager</h1>
+            <p class="subtitle">
+                Hệ thống quản lý mật khẩu tập trung • Phân quyền • Audit Log • Backup & Recovery • PEM Files
+            </p>
+        </div>
+
+        <div id="login-section" class="login-box">
+            <h2 style="margin-bottom: 20px;">Đăng nhập</h2>
+            <div id="message"></div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label>Username:</label>
+                    <input type="text" id="username" placeholder="Nhập username" required autofocus>
+                </div>
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="password" placeholder="Nhập password" required>
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Đăng nhập</button>
+            </form>
+            
+            <div class="demo-users">
+                <h4>👥 Demo Users:</h4>
+                <ul>
+                    <li><strong>admin</strong> / admin123 - Full quyền, xem audit log</li>
+                    <li><strong>lead1</strong> / lead123 - Team lead, quản lý team secrets</li>
+                    <li><strong>dev1, dev2</strong> / dev123 - Developers, dev secrets only</li>
+                    <li><strong>ops1, ops2</strong> / ops123 - Operations, ops secrets only</li>
+                    <li><strong>guest</strong> / guest123 - Read-only all secrets</li>
+                </ul>
+            </div>
+        </div>
+
+        <div id="dashboard-section" class="hidden">
+            <div class="user-bar">
+                <div class="user-info">
+                    <div class="user-badge">
+                        <strong>👤 User:</strong> <span id="current-user"></span>
+                    </div>
+                    <div class="user-badge">
+                        <strong>🎯 Policies:</strong> <span id="current-policies"></span>
+                    </div>
+                    <div class="user-badge">
+                        <strong>⏱️ Session:</strong> <span id="session-time"></span>
+                    </div>
+                </div>
+                <button class="btn btn-danger btn-small" onclick="logout()">Đăng xuất</button>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('secrets')">📦 Secrets</button>
+                <button class="tab" onclick="showTab('team')">🤝 Team Secrets</button>
+                <button class="tab" onclick="showTab('pem')">🔒 PEM Files</button>
+                <button class="tab" onclick="showTab('pki')">🔐 Certificates (PKI)</button>
+                <button class="tab" onclick="showTab('stats')">📊 Statistics</button>
+                <button class="tab" onclick="showTab('audit')">📝 Audit Log</button>
+            </div>
+
+            <div id="content-area"></div>
+        </div>
+
+        <!-- Modals -->
+        <div id="create-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Tạo Secret Mới</h2>
+                    <button class="close-btn" onclick="closeModal('create-modal')">&times;</button>
+                </div>
+                <form id="create-secret-form">
+                    <div class="form-group">
+                        <label>Mount Point:</label>
+                        <select id="new-secret-mount" required>
+                            <option value="secret">secret/ (Personal)</option>
+                            <option value="team">team/ (Shared)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Path:</label>
+                        <input type="text" id="new-secret-path" placeholder="e.g., myapp/config" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Data (JSON format):</label>
+                        <textarea id="new-secret-data" rows="8" placeholder='{\n  "key1": "value1",\n  "key2": "value2"\n}' required></textarea>
+                    </div>
+                    <button type="submit" class="btn">Tạo Secret</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="cert-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Issue Certificate</h2>
+                    <button class="close-btn" onclick="closeModal('cert-modal')">&times;</button>
+                </div>
+                <form id="issue-cert-form">
+                    <div class="form-group">
+                        <label>Role:</label>
+                        <select id="cert-role" required>
+                            <option value="dev-role">dev-role (*.dev.example.com)</option>
+                            <option value="prod-role">prod-role (*.example.com)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Common Name:</label>
+                        <input type="text" id="cert-cn" placeholder="e.g., app.dev.example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>TTL (hours):</label>
+                        <input type="number" id="cert-ttl" value="720" min="1" max="8760">
+                    </div>
+                    <button type="submit" class="btn">Issue Certificate</button>
+                </form>
+                <div id="cert-result" class="hidden mt-20"></div>
+            </div>
+        </div>
+
+        <div id="upload-pem-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Upload PEM File</h2>
+                    <button class="close-btn" onclick="closeModal('upload-pem-modal')">&times;</button>
+                </div>
+                <form id="upload-pem-form">
+                    <div class="form-group">
+                        <label>PEM File:</label>
+                        <input type="file" id="pem-file" accept=".pem,.key,.crt,.cer,.p12,.pfx" required>
+                        <small style="color: #666;">Accepts: .pem, .key, .crt, .cer, .p12, .pfx (max 10MB)</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Save Path:</label>
+                        <input type="text" id="pem-path" placeholder="e.g., myserver" required>
+                        <small style="color: #666;">Will be saved to: secret/pem-files/myserver</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" id="pem-description" placeholder="e.g., Production server SSL certificate">
+                    </div>
+                    <button type="submit" class="btn">Upload & Store</button>
+                </form>
+                <div id="upload-result" class="hidden mt-20"></div>
+            </div>
+        </div>
+
+        <div id="generate-keypair-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Generate Key Pair</h2>
+                    <button class="close-btn" onclick="closeModal('generate-keypair-modal')">&times;</button>
+                </div>
+                <form id="generate-keypair-form">
+                    <div class="form-group">
+                        <label>Key Type:</label>
+                        <select id="keypair-type" required>
+                            <option value="rsa">RSA</option>
+                            <option value="ec">Elliptic Curve (EC)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Key Size:</label>
+                        <select id="keypair-size" required>
+                            <option value="2048">2048 bits</option>
+                            <option value="4096">4096 bits</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Save Path:</label>
+                        <input type="text" id="keypair-path" placeholder="e.g., my-keypair" required>
+                        <small style="color: #666;">Will be saved to: secret/pem-files/my-keypair</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <input type="text" id="keypair-description" placeholder="e.g., SSH key for production server">
+                    </div>
+                    <button type="submit" class="btn">Generate Key Pair</button>
+                </form>
+                <div id="keypair-result" class="hidden mt-20"></div>
+            </div>
+        </div>
+    </div>
+
+    
+    <script src="app.js"></script>
+</body>
+</html>
